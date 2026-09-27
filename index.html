@@ -96,7 +96,7 @@
     }
 
     #debug-stack-btn {
-      display: flex;
+      display: none;
       position: absolute;
       bottom: max(24px, env(safe-area-inset-bottom));
       left: 20px;
@@ -213,7 +213,7 @@
   <div class="score-val"><span id="score">0</span> <span style="font-size: 20px; font-weight: 300;">個</span></div>
 </div>
 
-<!-- 左下：デバッグ垂直石積みボタン -->
+<!-- 左下：デバッグ垂直石積みボタン（マスク中） -->
 <div id="debug-stack-btn" aria-label="垂直石積み（デバッグ）">
   <svg viewBox="0 0 24 24">
     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -256,8 +256,8 @@
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('gesturestart', (e) => e.preventDefault());
 
-  // デバッグ用フラグ（有効化）
-  const DEBUG_STACK_ENABLED = true;
+  // デバッグ用フラグ（マスク：false）
+  const DEBUG_STACK_ENABLED = false;
 
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -816,7 +816,7 @@
     }
   }
 
-  // デバッグ用安全垂直スタック処理（通常プレイと100%両立）
+  // デバッグ用安全垂直スタック処理（通常プレイと100%両立・機能温存）
   function debugStackOneStone() {
     if (!DEBUG_STACK_ENABLED) return;
 
