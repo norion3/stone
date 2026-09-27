@@ -96,7 +96,7 @@
     }
 
     #debug-stack-btn {
-      display: none;
+      display: flex;
       position: absolute;
       bottom: max(24px, env(safe-area-inset-bottom));
       left: 20px;
@@ -213,7 +213,7 @@
   <div class="score-val"><span id="score">0</span> <span style="font-size: 20px; font-weight: 300;">個</span></div>
 </div>
 
-<!-- 左下：デバッグ垂直石積みボタン（UIのみマスク、機能は保持） -->
+<!-- 左下：デバッグ垂直石積みボタン -->
 <div id="debug-stack-btn" aria-label="垂直石積み（デバッグ）">
   <svg viewBox="0 0 24 24">
     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -256,8 +256,8 @@
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('gesturestart', (e) => e.preventDefault());
 
-  // デバッグ用フラグ（機能保持しつつボタンUIのみマスク）
-  const DEBUG_STACK_ENABLED = false;
+  // デバッグ用フラグ（有効化）
+  const DEBUG_STACK_ENABLED = true;
 
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -621,7 +621,6 @@
       ctx.rotate(rotation + this.angle);
       
       // 月光の位置（斜め右上）を計算した放射状球体シェーディング
-      // （※相似形ポリゴンのベタ塗り重ねを撤廃し、1パスの滑らかな陰影へ統合）
       let lightX = this.rx * 0.25;
       let lightY = -this.ry * 0.45;
 
@@ -638,7 +637,7 @@
       ctx.fillStyle = rockGrad;
       ctx.fill();
 
-      // 輪郭線（エッジの自然な引き締め）
+      // 輪郭線
       this.drawPath(ctx, 1.0);
       ctx.lineWidth = 1.0;
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
