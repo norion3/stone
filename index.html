@@ -13,7 +13,7 @@
       -webkit-user-select: none;
       -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
+      touch-action: none;
     }
     html, body {
       width: 100%;
@@ -96,6 +96,7 @@
     }
 
     #debug-stack-btn {
+      display: none;
       position: absolute;
       bottom: max(24px, env(safe-area-inset-bottom));
       left: 20px;
@@ -104,7 +105,6 @@
       background: rgba(15, 23, 42, 0.65);
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 50%;
-      display: flex;
       justify-content: center;
       align-items: center;
       color: #e0f2fe;
@@ -213,7 +213,7 @@
   <div class="score-val"><span id="score">0</span> <span style="font-size: 20px; font-weight: 300;">個</span></div>
 </div>
 
-<!-- 左下：デバッグ垂直石積みボタン -->
+<!-- 左下：デバッグ垂直石積みボタン（UIのみマスク、機能は保持） -->
 <div id="debug-stack-btn" aria-label="垂直石積み（デバッグ）">
   <svg viewBox="0 0 24 24">
     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -256,8 +256,8 @@
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('gesturestart', (e) => e.preventDefault());
 
-  // デバッグ用フラグ（falseでボタン非表示・機能停止）
-  const DEBUG_STACK_ENABLED = true;
+  // デバッグ用フラグ（機能保持しつつボタンUIのみマスク）
+  const DEBUG_STACK_ENABLED = false;
 
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -271,10 +271,6 @@
   const debugStackBtn = document.getElementById('debug-stack-btn');
   const iconMuted = document.getElementById('icon-muted');
   const iconUnmuted = document.getElementById('icon-unmuted');
-
-  if (!DEBUG_STACK_ENABLED && debugStackBtn) {
-    debugStackBtn.style.display = 'none';
-  }
 
   let W, H, waterLevel;
   
@@ -588,6 +584,7 @@
       }
       this.color = `hsl(${h}, ${s}%, ${l}%)`;
       this.highlight = `hsl(${h}, ${s}%, ${Math.min(90, l + 16)}%)`;
+      this.shadow = `hsl(${h}, ${s + 5}%, ${Math.max(5, l - 12)}%)`;
       
       this.vx = 0;
       this.vy = 0;
@@ -623,20 +620,28 @@
       ctx.translate(Math.round(drawX), Math.round(drawY));
       ctx.rotate(rotation + this.angle);
       
+      // 月光の位置（斜め右上）を計算した放射状球体シェーディング
+      // （※相似形ポリゴンのベタ塗り重ねを撤廃し、1パスの滑らかな陰影へ統合）
+      let lightX = this.rx * 0.25;
+      let lightY = -this.ry * 0.45;
+
+      let rockGrad = ctx.createRadialGradient(
+        lightX, lightY, this.ry * 0.15,
+        0, 0, this.rx * 1.05
+      );
+      rockGrad.addColorStop(0, this.highlight);
+      rockGrad.addColorStop(0.35, this.color);
+      rockGrad.addColorStop(0.75, this.shadow);
+      rockGrad.addColorStop(1.0, 'rgba(5, 10, 20, 0.85)');
+
       this.drawPath(ctx, 1.0);
-      ctx.fillStyle = this.color;
+      ctx.fillStyle = rockGrad;
       ctx.fill();
-      
-      ctx.save();
-      ctx.translate(0, -this.ry * 0.28);
-      this.drawPath(ctx, 0.62);
-      ctx.fillStyle = this.highlight;
-      ctx.fill();
-      ctx.restore();
-      
+
+      // 輪郭線（エッジの自然な引き締め）
       this.drawPath(ctx, 1.0);
-      ctx.lineWidth = 1.2;
-      ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+      ctx.lineWidth = 1.0;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
       ctx.stroke();
 
       if (this.flash > 0) {
@@ -734,7 +739,8 @@
     initMountains();
     initStars();
 
-    let base = new Stone(0, -40, 70, 22, true);
+    // 土台石の自然な引き締め（rx=74, ry=23、全幅148px）
+    let base = new Stone(0, -41, 74, 23, true);
     tower.push(base);
     
     spawnActiveStone();
@@ -752,9 +758,11 @@
   }
 
   function spawnActiveStone() {
-    let scale = Math.max(0.6, 1.0 - score * 0.015);
-    let rx = 50 * scale;
-    let ry = 16 * scale;
+    // 25段でのサイズ縮小完全ストップ（最小幅101pxを恒久保証）
+    let effectiveScore = Math.min(score, 25);
+    let scale = 1.0 - effectiveScore * 0.009;
+    let rx = 65 * scale;
+    let ry = 20 * scale;
     let topStone = tower[tower.length - 1];
     let by = topStone.localY - 240;
     
@@ -824,7 +832,7 @@
     if (gameState !== 'PLAYING' || tower.length === 0) return;
 
     let topStone = tower[tower.length - 1];
-    let newStone = activeStone ? activeStone.stoneObj : new Stone(0, 0, 50, 16);
+    let newStone = activeStone ? activeStone.stoneObj : new Stone(0, 0, 65, 20);
 
     let localYPos = topStone.localY - topStone.ry * 1.6;
     newStone.localX = topStone.localX; // 真上にピタリ設置 (diffX = 0)
@@ -865,7 +873,8 @@
   function processDropCollision() {
     if (!activeStone || activeStone.state !== 'DROPPING') return;
 
-    activeStone.y += 8.5 + Math.min(score * 0.18, 4.5); 
+    // 落下速度も30段で同期固定
+    activeStone.y += 8.5 + Math.min(score, 30) * 0.15; 
 
     let topStone = tower[tower.length - 1];
     let topWorld = getRotatedPos(topStone.localX, topStone.localY, currentTilt);
@@ -897,6 +906,7 @@
       activeStone.stoneObj.localY = localYPos;
       tower.push(activeStone.stoneObj);
 
+      // 芯合わせ・準パーフェクト緩衝（6〜10px）の判定
       if (Math.abs(diffX) <= 5) {
         diffX = 0;
         targetTilt *= 0.5;
@@ -907,6 +917,12 @@
         let curWater = Math.floor(waterLevel + cameraY);
         ripples.push(new Ripple(topWorld.x, curWater));
         for(let i=0; i<15; i++) particles.push(new Particle(topWorld.x, topWorld.y));
+      } else if (Math.abs(diffX) <= 10) {
+        // 準パーフェクト：目視でほぼ真ん中（緩衝ダンパーで傾きを0.80倍に整流）
+        diffX = 0;
+        targetTilt *= 0.80;
+        perfectCombo = 0;
+        playSound('drop');
       } else {
         perfectCombo = 0;
         playSound('drop');
@@ -918,8 +934,16 @@
       }
       let comX = sumX / tower.length;
 
-      let localTorque = diffX * (0.0009 + score * 0.00018);
-      let comTorque = (comX / 70) * (0.07 + score * 0.006);
+      // 下層トルクの底上げ（0.0014）＋ 25段でのソフト固定（最大0.0022）
+      let effectiveScore = Math.min(score, 25);
+      let localFactor = 0.0014 + effectiveScore * 0.000032;
+      let rawLocalTorque = diffX * localFactor;
+      let localTorque = Math.max(-0.085, Math.min(0.085, rawLocalTorque)); // 一撃キャップ
+
+      // 合成重心トルクの全層調律（最大0.125）
+      let comFactor = 0.065 + effectiveScore * 0.0024;
+      let comTorque = (comX / 74) * comFactor;
+
       targetTilt = targetTilt * 0.65 + localTorque + comTorque;
 
       score++;
@@ -931,7 +955,8 @@
         triggerShootingStar();
       }
 
-      if (Math.abs(targetTilt) > 0.22) {
+      // 崩壊閾値 0.23rad（約13.2度）
+      if (Math.abs(targetTilt) > 0.23) {
         triggerGameOver();
       } else {
         updateCamera();
@@ -966,12 +991,13 @@
     
     let uiBottom = uiLayer ? uiLayer.getBoundingClientRect().bottom : 85;
     let finalY = Math.max(70, Math.floor(uiBottom + 12));
-    let finalX = W * 0.77;
-    let startX = W * 0.65;
+    let finalX = W * 0.78;
+    let startX = W * 0.52; // 山の窪みから斜め上方へ
     let startY = waterLevel - 40;
     
     let moonX = startX + (finalX - startX) * t;
-    let moonY = startY - (startY - finalY) * t;
+    let arcLift = Math.sin(t * Math.PI) * 18; // 放物線アーク
+    let moonY = startY - (startY - finalY) * t - arcLift;
     return { x: moonX, y: moonY, progress: p };
   }
 
@@ -1023,14 +1049,16 @@
 
       if (currentAuroraAlpha > 0.005) {
         ctx.save();
+        ctx.shadowColor = 'rgba(52, 211, 153, 0.8)';
+        ctx.shadowBlur = 20; // 柔らかな発光拡散カーテン
         for (let l = 0; l < 2; l++) {
           let ribbonGrad = ctx.createLinearGradient(0, 0, 0, 150);
           if (l === 0) {
-            ribbonGrad.addColorStop(0, `rgba(52, 211, 153, ${currentAuroraAlpha * 0.52})`); // エメラルドグリーン
+            ribbonGrad.addColorStop(0, `rgba(52, 211, 153, ${currentAuroraAlpha * 0.52})`);
             ribbonGrad.addColorStop(0.5, `rgba(56, 189, 248, ${currentAuroraAlpha * 0.25})`);
             ribbonGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
           } else {
-            ribbonGrad.addColorStop(0, `rgba(167, 139, 250, ${currentAuroraAlpha * 0.35})`); // 淡い紫
+            ribbonGrad.addColorStop(0, `rgba(167, 139, 250, ${currentAuroraAlpha * 0.35})`);
             ribbonGrad.addColorStop(0.45, `rgba(52, 211, 153, ${currentAuroraAlpha * 0.20})`);
             ribbonGrad.addColorStop(1, 'rgba(52, 211, 153, 0)');
           }
@@ -1071,12 +1099,13 @@
 
     let moonPos = getMoonPosition();
     let moonRadius = 24;
-    let moonAngle = (currentMoonType === 'CRESCENT') ? -0.32 : 0;
+    // 半月（+15° / +0.26rad）＆ 三日月（+22° / +0.38rad）の情緒的傾き
+    let moonAngle = (currentMoonType === 'CRESCENT') ? 0.38 : (currentMoonType === 'HALF' ? 0.26 : 0);
 
     if (!isReflection) {
       ctx.save();
       ctx.translate(moonPos.x, moonPos.y);
-      if (currentMoonType === 'CRESCENT') {
+      if (moonAngle !== 0) {
         ctx.rotate(moonAngle);
       }
 
@@ -1188,8 +1217,8 @@
         
         ctx.translate(moonPos.x + waveOffset, refMoonY);
         ctx.scale(1.05, 0.85);
-        if (currentMoonType === 'CRESCENT') {
-          ctx.rotate(-moonAngle);
+        if (moonAngle !== 0) {
+          ctx.rotate(-moonAngle); // 上下反転光学に合わせた逆回転同期
         }
 
         ctx.fillStyle = refGrad;
@@ -1350,7 +1379,8 @@
           stoneY = pivotY + rodLength;
         } else {
           let timeElapsed = Date.now() - swingStartTime;
-          let swingSpeed = 0.0022 + score * 0.00007;
+          // スイング速度の30段完全天井固定（片道約0.78秒）
+          let swingSpeed = 0.0022 + Math.min(score, 30) * 0.00006;
           let swingXAmp = Math.max(rodLength * Math.sin(0.78), W * 0.44);
           let normalizedSwing = Math.sin(timeElapsed * swingSpeed);
           stoneX = pivotX + normalizedSwing * swingXAmp;
@@ -1367,10 +1397,15 @@
         ctx.arc(pivotX, pivotY, 1.5, 0, Math.PI * 2);
         ctx.fill();
 
+        // 闇から現れる神秘的な銀糸（グラデーション化）
+        let stringGrad = ctx.createLinearGradient(pivotX, pivotY, stoneX, stoneY);
+        stringGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        stringGrad.addColorStop(1, 'rgba(255, 255, 255, 0.30)');
+
         ctx.beginPath();
         ctx.moveTo(pivotX, pivotY);
         ctx.lineTo(stoneX, stoneY);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.strokeStyle = stringGrad;
         ctx.lineWidth = 0.8;
         ctx.stroke();
 
@@ -1507,12 +1542,7 @@
       ctx.fillRect(0, curWaterLevel, W, Math.ceil(H - curWaterLevel));
       ctx.restore();
 
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, curWaterLevel);
-      ctx.lineTo(W, curWaterLevel);
-      ctx.stroke();
+      // 水面境界線は完全撤廃（アンビエントな溶け込み）
     }
 
     for (let i = ripples.length - 1; i >= 0; i--) {
