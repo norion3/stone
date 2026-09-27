@@ -35,7 +35,8 @@
     }
     .ui-layer {
       position: absolute;
-      top: max(20px, env(safe-area-inset-top));
+      /* iOSセーフエリア + GRAVITYヘッダー高(約52px) + 余白(12px) */
+      top: max(112px, calc(env(safe-area-inset-top) + 58px));
       left: 50%;
       transform: translateX(-50%);
       pointer-events: none;
@@ -96,7 +97,7 @@
     }
 
     #debug-stack-btn {
-      display: none;
+      display: none; /* デバッグボタンのマスク（非表示） */
       position: absolute;
       bottom: max(24px, env(safe-area-inset-bottom));
       left: 20px;
@@ -105,6 +106,7 @@
       background: rgba(15, 23, 42, 0.65);
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 50%;
+      display: flex;
       justify-content: center;
       align-items: center;
       color: #e0f2fe;
@@ -151,7 +153,7 @@
       visibility: hidden;
     }
     #start-modal {
-      top: 43%;
+      top: 46%;
       pointer-events: none;
     }
     #game-over-modal {
@@ -214,7 +216,7 @@
 </div>
 
 <!-- 左下：デバッグ垂直石積みボタン（マスク中） -->
-<div id="debug-stack-btn" aria-label="垂直石積み（デバッグ）">
+<div id="debug-stack-btn" style="display: none;" aria-label="垂直石積み（デバッグ）">
   <svg viewBox="0 0 24 24">
     <line x1="12" y1="5" x2="12" y2="19"></line>
     <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -256,7 +258,7 @@
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('gesturestart', (e) => e.preventDefault());
 
-  // デバッグ用フラグ（マスク：false）
+  // デバッグ用フラグ（マスク時: false）
   const DEBUG_STACK_ENABLED = false;
 
   const canvas = document.getElementById('canvas');
@@ -271,6 +273,10 @@
   const debugStackBtn = document.getElementById('debug-stack-btn');
   const iconMuted = document.getElementById('icon-muted');
   const iconUnmuted = document.getElementById('icon-unmuted');
+
+  if (!DEBUG_STACK_ENABLED && debugStackBtn) {
+    debugStackBtn.style.display = 'none';
+  }
 
   let W, H, waterLevel;
   
@@ -492,7 +498,9 @@
       let sx = Math.random() * W;
       let sy = Math.random() * (waterLevel - 60);
       
-      if (Math.abs(sx - W / 2) < 95 && sy < 95) {
+      let uiTop = 100;
+      let uiBottom = 165;
+      if (Math.abs(sx - W / 2) < 95 && (sy >= uiTop - 15 && sy <= uiBottom + 15)) {
         continue;
       }
 
@@ -966,7 +974,8 @@
 
   function updateCamera() {
     let topLocalY = tower[tower.length - 1].localY;
-    targetCameraY = Math.max(0, -topLocalY - H * 0.28);
+    // 係数を 0.28 → 0.18 へ調律（タワー頂点が画面下寄り約65%に安定し、上部に広大な落下余白を確保）
+    targetCameraY = Math.max(0, -topLocalY - H * 0.18);
   }
 
   function triggerGameOver() {
@@ -988,8 +997,8 @@
     let p = currentMoonProgress;
     let t = p * p * (3 - 2 * p);
     
-    let uiBottom = uiLayer ? uiLayer.getBoundingClientRect().bottom : 85;
-    let finalY = Math.max(70, Math.floor(uiBottom + 12));
+    let uiBottom = uiLayer ? uiLayer.getBoundingClientRect().bottom : 150;
+    let finalY = Math.max(136, Math.floor(uiBottom + 8));
     let finalX = W * 0.78;
     let startX = W * 0.52; // 山の窪みから斜め上方へ
     let startY = waterLevel - 40;
@@ -1368,8 +1377,9 @@
 
         let topStone = tower[tower.length - 1];
         let topWorld = getRotatedPos(topStone.localX, topStone.localY, currentTilt);
-        let targetStoneY = Math.max(pivotY + 160, topWorld.y - 240);
-        let rodLength = Math.max(160, targetStoneY - pivotY);
+        // タワー頂点との落下距離を220px以上確保し、視認性と滞空時間を回復
+        let targetStoneY = Math.max(pivotY + 140, topWorld.y - 220);
+        let rodLength = Math.max(140, targetStoneY - pivotY);
 
         let stoneX, stoneY;
 
