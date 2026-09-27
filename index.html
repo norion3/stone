@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Zen Stones</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    html, body {
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      background: #020617;
+      font-family: "Helvetica Neue", Arial, "Hiragino Mincho ProN", "Yu Mincho", serif;
+      overscroll-behavior: none;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .ui-layer {
+      position: absolute;
+      top: max(20px, env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      color: #fff;
+      z-index: 10;
+      transition: opacity 0.5s ease;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .score-label {
+      font-size: 13px;
+      letter-spacing: 4px;
+      color: #94a3b8;
+      margin-bottom: 2px;
+    }
+    .score-val { 
+      font-size: 46px; 
+      font-weight: 400; 
+      letter-spacing: 2px; 
+      text-shadow: 0 4px 15px rgba(0,0,0,0.8), 0 0 20px rgba(255, 255, 255, 0.2); 
+      color: #f8fafc;
+    }
+    #mute-btn {
+      position: absolute;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      right: 20px;
+      width: 44px;
+      height: 44px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #e0f2fe;
+      z-index: 20;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    #mute-btn.active-sound {
+      background: rgba(224, 242, 254, 0.15);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    }
+    #mute-btn:active { 
+      transform: scale(0.9); 
+    }
+    #mute-btn svg {
+      width: 20px;
+      height: 20px;
+      stroke: #e0f2fe;
+      fill: none;
+      stroke-width: 1.8px;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+
+    #debug-stack-btn {
+      position: absolute;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      left: 20px;
+      width: 44px;
+      height: 44px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #e0f2fe;
+      z-index: 20;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    #debug-stack-btn:active {
+      transform: scale(0.9);
+      background: rgba(224, 242, 254, 0.2);
+    }
+    #debug-stack-btn svg {
+      width: 20px;
+      height: 20px;
+      stroke: #e0f2fe;
+      fill: none;
+      stroke-width: 2px;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+    
+    .modal-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(10, 15, 30, 0.92);
+      border-radius: 8px;
+      padding: 40px 30px;
+      text-align: center;
+      color: white;
+      z-index: 30;
+      transition: opacity 0.3s ease;
+      width: 85%;
+      max-width: 380px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+      pointer-events: auto;
+    }
+    .modal-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+    }
+    #start-modal {
+      top: 43%;
+      pointer-events: none;
+    }
+    #game-over-modal {
+      top: 68%;
+    }
+    .rule-title {
+      font-size: 24px;
+      font-weight: 300;
+      color: #e2e8f0;
+      margin-bottom: 20px;
+      letter-spacing: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      padding-bottom: 12px;
+    }
+    .rule-text {
+      font-size: 14px;
+      line-height: 2.2;
+      margin-bottom: 28px;
+      color: #e2e8f0;
+      font-weight: 400;
+      letter-spacing: 2px;
+    }
+    .blink-text {
+      font-size: 15px;
+      font-weight: 400;
+      animation: blink 2.5s infinite;
+      color: #bae6fd;
+      letter-spacing: 5px;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; text-shadow: 0 0 15px rgba(186, 230, 253, 0.6); }
+      50% { opacity: 0.45; text-shadow: none; }
+    }
+
+    .modal-sub { font-size: 13px; color: #94a3b8; font-weight: 400; letter-spacing: 4px; margin-bottom: 4px; }
+    .modal-score { font-size: 60px; color: #fff; font-weight: 300; text-shadow: 0 4px 20px rgba(255,255,255,0.25); margin: 6px 0 20px; }
+    
+    .btn {
+      width: 100%;
+      background: transparent;
+      color: #e0f2fe;
+      border: 1px solid rgba(255,255,255,0.4);
+      padding: 15px 0;
+      font-size: 15px;
+      font-weight: 400;
+      letter-spacing: 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.25s;
+      font-family: inherit;
+    }
+    .btn:active { transform: scale(0.97); background: rgba(255,255,255,0.12); }
+  </style>
+</head>
+<body>
+
+<div class="ui-layer" id="ui-layer">
+  <div class="score-label">積み上げた石</div>
+  <div class="score-val"><span id="score">0</span> <span style="font-size: 20px; font-weight: 300;">個</span></div>
+</div>
+
+<!-- 左下：デバッグ垂直石積みボタン -->
+<div id="debug-stack-btn" aria-label="垂直石積み（デバッグ）">
+  <svg viewBox="0 0 24 24">
+    <line x1="12" y1="5" x2="12" y2="19"></line>
+    <line x1="5" y1="12" x2="19" y2="12"></line>
+  </svg>
+</div>
+
+<!-- 右下：音量切替ボタン -->
+<div id="mute-btn" aria-label="音量切替">
+  <svg id="icon-muted" viewBox="0 0 24 24">
+    <path d="M11 5L6 9H2v6h4l5 4V5z" stroke="rgba(224, 242, 254, 0.45)"/>
+    <line x1="22" y1="2" x2="2" y2="22" stroke="rgba(224, 242, 254, 0.65)"/>
+  </svg>
+  <svg id="icon-unmuted" viewBox="0 0 24 24" style="display: none;">
+    <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+  </svg>
+</div>
+
+<div id="start-modal" class="modal-overlay">
+  <div class="rule-text" style="margin-top: 5px;">
+    タップで揺れる石を落として積む<br>
+    中心からズレると塔が傾き、倒れる<br>
+    真ん中を狙ってバランスを保とう
+  </div>
+  <div class="blink-text">画面をタップして開始</div>
+</div>
+
+<div id="game-over-modal" class="modal-overlay hidden">
+  <div class="rule-title" style="letter-spacing: 8px; margin-bottom: 24px;">石塔倒壊</div>
+  <div class="modal-sub">積み上げた数</div>
+  <div class="modal-score"><span id="final-score">0</span> <span style="font-size: 24px;">個</span></div>
+  <button class="btn" id="restart-btn">もう一度挑戦する</button>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+  window.addEventListener('contextmenu', (e) => e.preventDefault());
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+
+  // デバッグ用フラグ（falseでボタン非表示・機能停止）
+  const DEBUG_STACK_ENABLED = true;
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const finalScoreEl = document.getElementById('final-score');
+  const gameOverModal = document.getElementById('game-over-modal');
+  const startModal = document.getElementById('start-modal');
+  const uiLayer = document.getElementById('ui-layer');
+  const restartBtn = document.getElementById('restart-btn');
+  const muteBtn = document.getElementById('mute-btn');
+  const debugStackBtn = document.getElementById('debug-stack-btn');
+  const iconMuted = document.getElementById('icon-muted');
+  const iconUnmuted = document.getElementById('icon-unmuted');
+
+  if (!DEBUG_STACK_ENABLED && debugStackBtn) {
+    debugStackBtn.style.display = 'none';
+  }
+
+  let W, H, waterLevel;
+  
+  let gameState = 'START'; 
+  let score = 0;
+  let perfectCombo = 0;
+  let tower = [];
+  let fallingStones = [];
+  let ripples = [];
+  let particles = [];
+  let activeStone = null;
+  
+  let targetTilt = 0;
+  let currentTilt = 0;
+  let cameraY = 0;
+  let targetCameraY = 0;
+  let cinematicFrame = 0;
+  let collapseFrame = 0;
+  let tiltVelocity = 0;
+  let modalShown = false;
+  
+  let bgPhase = 0; 
+  let mountains = [];
+  let stars = [];
+
+  let currentMoonProgress = 0;
+  let targetMoonProgress = 0;
+  let currentMoonType = 'FULL'; // 'FULL' | 'HALF' | 'CRESCENT'
+  let swingStartTime = 0;
+
+  // 環境ギミック用（流れ星・夜霧・オーロラ）
+  let shootingStar = null;
+  let shootingStarTriggered = false;
+  let currentMistAlpha = 0;
+  let currentAuroraAlpha = 0;
+  
+  let audioCtx = null;
+  let isMuted = true;
+  let isGameInitialized = false;
+
+  function initAudio() {
+    if (!audioCtx) {
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+    }
+  }
+
+  muteBtn.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    isMuted = !isMuted;
+    if (isMuted) {
+      iconMuted.style.display = 'block';
+      iconUnmuted.style.display = 'none';
+      muteBtn.classList.remove('active-sound');
+    } else {
+      iconMuted.style.display = 'none';
+      iconUnmuted.style.display = 'block';
+      muteBtn.classList.add('active-sound');
+      initAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+  });
+
+  // ペンタトニック音階（C Major Pentatonic: ド・レ・ミ・ソ・ラ・高ド・高レ・高ミ）
+  const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51];
+
+  function playSound(type) {
+    if (isMuted) return;
+    initAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const t = audioCtx.currentTime;
+    const gain = audioCtx.createGain();
+    gain.connect(audioCtx.destination);
+    
+    if (type === 'drop') {
+      const osc = audioCtx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(600, t);
+      osc.frequency.exponentialRampToValueAtTime(100, t + 0.05);
+      osc.connect(gain);
+      gain.gain.setValueAtTime(0.4, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+      osc.start(t);
+      osc.stop(t + 0.05);
+    } else if (type === 'perfect') {
+      // 連続芯合わせ（コンボ）に応じて音階が順に上昇する水琴窟メロディ連動
+      let noteIdx = (perfectCombo > 0 ? perfectCombo - 1 : 0) % pentatonic.length;
+      let freq = pentatonic[noteIdx];
+
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      osc1.type = 'sine'; osc2.type = 'sine';
+      osc1.frequency.setValueAtTime(freq, t);
+      osc2.frequency.setValueAtTime(freq * 2.01, t);
+      
+      osc1.connect(gain); osc2.connect(gain);
+      
+      let duration = 2.0 + Math.min(perfectCombo * 0.12, 0.8);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.22, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
+      
+      osc1.start(t); osc1.stop(t + duration);
+      osc2.start(t); osc2.stop(t + duration);
+    } else if (type === 'splash') {
+      const bufferSize = audioCtx.sampleRate * 0.5; 
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+      
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(800, t);
+      filter.frequency.exponentialRampToValueAtTime(100, t + 0.5);
+      
+      noise.connect(filter);
+      filter.connect(gain);
+      
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+      
+      noise.start(t);
+    }
+  }
+
+  function resize() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    waterLevel = Math.floor(H * 0.83);
+    if (isGameInitialized) {
+      initMountains();
+      initStars();
+    }
+  }
+  window.addEventListener('resize', resize);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+
+  function lerpColor(c1, c2, t) {
+    const parse = (hex) => [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+    const p1 = parse(c1), p2 = parse(c2);
+    const r = Math.round(p1[0] + (p2[0] - p1[0]) * t);
+    const g = Math.round(p1[1] + (p2[1] - p1[1]) * t);
+    const b = Math.round(p1[2] + (p2[2] - p1[2]) * t);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function initMountains() {
+    mountains = [];
+    
+    // 独立した山頂・裾野・個性を持つ山岳モデル（3層・計12峰）
+    const peakConfigs = [
+      // --- 奥層 (Layer 0: 遠景・雄大な主峰と連峰) ---
+      { layer: 0, peakX: W * 0.68, height: 165, baseL: W * 0.80, baseR: W * 0.90, seed: 1.2 },
+      { layer: 0, peakX: W * 0.18, height: 140, baseL: W * 0.75, baseR: W * 0.70, seed: 3.7 },
+      { layer: 0, peakX: W * 1.05, height: 150, baseL: W * 0.70, baseR: W * 0.85, seed: 5.1 },
+      { layer: 0, peakX: -W * 0.15, height: 130, baseL: W * 0.65, baseR: W * 0.75, seed: 8.4 },
+
+      // --- 中層 (Layer 1: 中景・重なり合う尾根) ---
+      { layer: 1, peakX: W * 0.42, height: 105, baseL: W * 0.60, baseR: W * 0.60, seed: 2.5 },
+      { layer: 1, peakX: W * 0.88, height: 98,  baseL: W * 0.55, baseR: W * 0.65, seed: 4.8 },
+      { layer: 1, peakX: W * 0.02, height: 92,  baseL: W * 0.60, baseR: W * 0.55, seed: 7.3 },
+      { layer: 1, peakX: -W * 0.25, height: 85, baseL: W * 0.55, baseR: W * 0.60, seed: 9.6 },
+
+      // --- 手前層 (Layer 2: 近景・水辺に寄り添う低山・裾野) ---
+      { layer: 2, peakX: W * 0.26, height: 58, baseL: W * 0.50, baseR: W * 0.50, seed: 3.1 },
+      { layer: 2, peakX: W * 0.76, height: 62, baseL: W * 0.50, baseR: W * 0.55, seed: 6.2 },
+      { layer: 2, peakX: -W * 0.08, height: 52, baseL: W * 0.45, baseR: W * 0.45, seed: 1.9 },
+      { layer: 2, peakX: W * 1.12, height: 55, baseL: W * 0.50, baseR: W * 0.50, seed: 8.0 }
+    ];
+
+    peakConfigs.forEach(cfg => {
+      let pts = [];
+      let steps = 28;
+      let x0 = cfg.peakX - cfg.baseL;
+      let x1 = cfg.peakX + cfg.baseR;
+      
+      for (let s = 0; s <= steps; s++) {
+        let t = s / steps;
+        let x = x0 + (x1 - x0) * t;
+        let u = x < cfg.peakX ? (x - cfg.peakX) / cfg.baseL : (x - cfg.peakX) / cfg.baseR;
+        
+        let bell = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(u), 1.35)), 1.8);
+        let ridge = (Math.sin(t * Math.PI * 6 + cfg.seed) * 0.07 + Math.cos(t * Math.PI * 11 + cfg.seed * 2) * 0.035) * Math.sin(t * Math.PI);
+        let h = cfg.height * (bell + ridge);
+        
+        pts.push({
+          x: x,
+          y: waterLevel - Math.max(0, h)
+        });
+      }
+
+      mountains.push({
+        layer: cfg.layer,
+        points: pts,
+        peakX: cfg.peakX,
+        height: cfg.height
+      });
+    });
+
+    mountains.sort((a, b) => a.layer - b.layer);
+  }
+
+  // スコアUI直後の星マスク（文字との重なりによるノイズを完全防止）
+  function initStars() {
+    stars = [];
+    const count = 40;
+    let attempts = 0;
+    while (stars.length < count && attempts < 250) {
+      attempts++;
+      let sx = Math.random() * W;
+      let sy = Math.random() * (waterLevel - 60);
+      
+      if (Math.abs(sx - W / 2) < 95 && sy < 95) {
+        continue;
+      }
+
+      const isMid = Math.random() < 0.3;
+      stars.push({
+        x: sx,
+        y: sy,
+        size: 0.8 + Math.random() * 1.2,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.0018 + Math.random() * 0.0016,
+        layerFactor: isMid ? 0.08 : 0.03
+      });
+    }
+  }
+
+  // スコア12到達時の流れ星トリガー
+  function triggerShootingStar() {
+    shootingStarTriggered = true;
+    shootingStar = {
+      x: W * 0.15,
+      y: Math.min(H * 0.18, 115),
+      vx: Math.max(7.2, W * 0.013),
+      vy: Math.max(3.4, H * 0.0065),
+      length: Math.max(55, W * 0.15),
+      life: 1.0
+    };
+  }
+
+  function updateAndDrawShootingStar(ctx) {
+    if (!shootingStar) return;
+    shootingStar.x += shootingStar.vx;
+    shootingStar.y += shootingStar.vy;
+    shootingStar.life -= 0.016;
+
+    if (shootingStar.life <= 0 || shootingStar.x > W + 100 || shootingStar.y > waterLevel) {
+      shootingStar = null;
+      return;
+    }
+
+    let hyp = Math.hypot(shootingStar.vx, shootingStar.vy);
+    let tailX = shootingStar.x - (shootingStar.vx / hyp) * shootingStar.length;
+    let tailY = shootingStar.y - (shootingStar.vy / hyp) * shootingStar.length;
+
+    let grad = ctx.createLinearGradient(tailX, tailY, shootingStar.x, shootingStar.y);
+    grad.addColorStop(0, 'rgba(224, 242, 254, 0)');
+    grad.addColorStop(0.7, `rgba(186, 230, 253, ${shootingStar.life * 0.45})`);
+    grad.addColorStop(1, `rgba(255, 255, 255, ${shootingStar.life * 0.95})`);
+
+    ctx.save();
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(tailX, tailY);
+    ctx.lineTo(shootingStar.x, shootingStar.y);
+    ctx.stroke();
+
+    ctx.fillStyle = `rgba(255, 255, 255, ${shootingStar.life * 0.9})`;
+    ctx.beginPath();
+    ctx.arc(shootingStar.x, shootingStar.y, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  class Stone {
+    constructor(x, y, rx, ry, isBase = false) {
+      this.localX = x; 
+      this.localY = y;
+      this.worldX = 0;
+      this.worldY = 0;
+      this.rx = rx;
+      this.ry = ry;
+      this.isBase = isBase;
+      this.flash = 0;
+      
+      this.vertexOffsets = [];
+      const numVertices = 14;
+      for (let i = 0; i < numVertices; i++) {
+        this.vertexOffsets.push(0.9 + Math.random() * 0.2);
+      }
+
+      let tone = Math.random();
+      let h, s, l;
+      if (tone < 0.4) {
+        h = 210 + Math.random() * 15; s = 14 + Math.random() * 8; l = 20 + Math.random() * 10;
+      } else if (tone < 0.7) {
+        h = 195 + Math.random() * 15; s = 10 + Math.random() * 8; l = 28 + Math.random() * 12;
+      } else {
+        h = 220 + Math.random() * 20; s = 8 + Math.random() * 6; l = 38 + Math.random() * 15;
+      }
+      this.color = `hsl(${h}, ${s}%, ${l}%)`;
+      this.highlight = `hsl(${h}, ${s}%, ${Math.min(90, l + 16)}%)`;
+      
+      this.vx = 0;
+      this.vy = 0;
+      this.va = 0; 
+      this.angle = 0;
+    }
+    
+    updatePhysics() {
+      this.vy += 0.4;
+      this.worldX += this.vx;
+      this.worldY += this.vy;
+      this.angle += this.va;
+      if (this.flash > 0) this.flash -= 0.05;
+    }
+    
+    drawPath(ctx, scaleR = 1.0) {
+      const num = this.vertexOffsets.length;
+      ctx.beginPath();
+      for (let i = 0; i <= num; i++) {
+        let idx = i % num;
+        let theta = (i / num) * Math.PI * 2;
+        let r = this.vertexOffsets[idx] * scaleR;
+        let px = Math.cos(theta) * this.rx * r;
+        let py = Math.sin(theta) * this.ry * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    draw(ctx, drawX, drawY, rotation = 0) {
+      ctx.save();
+      ctx.translate(Math.round(drawX), Math.round(drawY));
+      ctx.rotate(rotation + this.angle);
+      
+      this.drawPath(ctx, 1.0);
+      ctx.fillStyle = this.color;
+      ctx.fill();
+      
+      ctx.save();
+      ctx.translate(0, -this.ry * 0.28);
+      this.drawPath(ctx, 0.62);
+      ctx.fillStyle = this.highlight;
+      ctx.fill();
+      ctx.restore();
+      
+      this.drawPath(ctx, 1.0);
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+      ctx.stroke();
+
+      if (this.flash > 0) {
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = `rgba(255, 255, 255, ${this.flash * 0.6})`;
+        this.drawPath(ctx, 1.0);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      
+      ctx.restore();
+    }
+  }
+
+  class Ripple {
+    constructor(x, y) {
+      this.x = x; this.y = y;
+      this.radius = 5;
+      this.life = 1.0;
+    }
+    update() {
+      this.radius += 2.5;
+      this.life -= 0.02;
+    }
+    draw(ctx) {
+      if(this.life <= 0) return;
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.scale(1, 0.25);
+      ctx.beginPath();
+      ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(224, 242, 254, ${this.life})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  class Particle {
+    constructor(x, y) {
+      this.x = x; this.y = y;
+      this.vx = (Math.random() - 0.5) * 4;
+      this.vy = -Math.random() * 3 - 1;
+      this.life = 1.0;
+      this.size = Math.random() * 2 + 1;
+    }
+    update() {
+      this.x += this.vx; this.y += this.vy;
+      this.vy += 0.1;
+      this.life -= 0.03;
+    }
+    draw(ctx) {
+      if(this.life <= 0) return;
+      ctx.fillStyle = `rgba(255, 255, 255, ${this.life})`;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function initGame(isRestart = false) {
+    if (W === 0 || H === 0) return;
+    
+    score = 0;
+    perfectCombo = 0;
+    tower = [];
+    fallingStones = [];
+    ripples = [];
+    particles = [];
+    targetTilt = 0;
+    currentTilt = 0;
+    tiltVelocity = 0;
+    cameraY = 0;
+    targetCameraY = 0;
+    bgPhase = 0;
+    cinematicFrame = 0;
+    collapseFrame = 0;
+    modalShown = false;
+
+    currentMoonProgress = 0;
+    targetMoonProgress = 0;
+
+    const MOON_TYPES = ['FULL', 'HALF', 'CRESCENT'];
+    currentMoonType = MOON_TYPES[Math.floor(Math.random() * MOON_TYPES.length)];
+
+    shootingStar = null;
+    shootingStarTriggered = false;
+    currentMistAlpha = 0;
+    currentAuroraAlpha = 0;
+    
+    scoreEl.textContent = score;
+    gameOverModal.classList.add('hidden');
+    uiLayer.style.opacity = 1;
+
+    initMountains();
+    initStars();
+
+    let base = new Stone(0, -40, 70, 22, true);
+    tower.push(base);
+    
+    spawnActiveStone();
+
+    if (isRestart) {
+      gameState = 'PLAYING';
+      startModal.classList.add('hidden');
+      swingStartTime = Date.now();
+    } else {
+      gameState = 'START';
+      startModal.classList.remove('hidden');
+    }
+
+    isGameInitialized = true;
+  }
+
+  function spawnActiveStone() {
+    let scale = Math.max(0.6, 1.0 - score * 0.015);
+    let rx = 50 * scale;
+    let ry = 16 * scale;
+    let topStone = tower[tower.length - 1];
+    let by = topStone.localY - 240;
+    
+    swingStartTime = Date.now();
+    
+    activeStone = {
+      rx: rx, ry: ry,
+      baseY: by,
+      y: by,
+      currentSwingX: 0,
+      currentSwingY: by,
+      state: 'SWINGING',
+      stoneObj: new Stone(0, 0, rx, ry)
+    };
+  }
+
+  function startGame() {
+    gameState = 'PLAYING';
+    startModal.classList.add('hidden');
+    swingStartTime = Date.now();
+  }
+
+  function getRotatedWorldPos(localX, localY, tilt) {
+    let cx = W / 2;
+    let cy = waterLevel;
+    let cos = Math.cos(tilt);
+    let sin = Math.sin(tilt);
+    return {
+      x: cx + localX * cos - localY * sin,
+      y: cy + localX * sin + localY * cos
+    };
+  }
+
+  function getRotatedPos(localX, localY, tilt) {
+    let pos = getRotatedWorldPos(localX, localY, tilt);
+    return {
+      x: pos.x,
+      y: pos.y + cameraY
+    };
+  }
+
+  // 通常石落とし（画面タップ時）
+  function handleTap() {
+    if (gameState === 'START') {
+      startGame();
+    } else if (gameState === 'PLAYING' && activeStone && activeStone.state === 'SWINGING') {
+      activeStone.state = 'DROPPING';
+      let swingX = Number.isFinite(activeStone.currentSwingX) ? activeStone.currentSwingX : 0;
+      let swingY = Number.isFinite(activeStone.currentSwingY) ? activeStone.currentSwingY : activeStone.baseY;
+      activeStone.dropX = Math.round(W / 2 + swingX);
+      activeStone.y = swingY;
+    }
+  }
+
+  // デバッグ用安全垂直スタック処理（通常プレイと100%両立）
+  function debugStackOneStone() {
+    if (!DEBUG_STACK_ENABLED) return;
+
+    if (gameState === 'COLLAPSING' || gameState === 'SHOWCASE') {
+      initGame(true);
+    } else if (gameState === 'START') {
+      gameState = 'PLAYING';
+      startModal.classList.add('hidden');
+      swingStartTime = Date.now();
+    }
+
+    if (gameState !== 'PLAYING' || tower.length === 0) return;
+
+    let topStone = tower[tower.length - 1];
+    let newStone = activeStone ? activeStone.stoneObj : new Stone(0, 0, 50, 16);
+
+    let localYPos = topStone.localY - topStone.ry * 1.6;
+    newStone.localX = topStone.localX; // 真上にピタリ設置 (diffX = 0)
+    newStone.localY = localYPos;
+    newStone.flash = 0.8;
+    newStone.angle = 0;
+    newStone.va = 0;
+    newStone.vx = 0;
+    newStone.vy = 0;
+    tower.push(newStone);
+
+    // 傾きを水平に中和
+    targetTilt = 0;
+    currentTilt = 0;
+    tiltVelocity = 0;
+    perfectCombo++;
+    playSound('perfect');
+
+    let topWorld = getRotatedPos(newStone.localX, newStone.localY, currentTilt);
+    let curWater = Math.floor(waterLevel + cameraY);
+    ripples.push(new Ripple(topWorld.x, curWater));
+    for (let i = 0; i < 15; i++) {
+      particles.push(new Particle(topWorld.x, topWorld.y));
+    }
+
+    score++;
+    scoreEl.textContent = score;
+    bgPhase = Math.min(1.0, score / 35);
+
+    if (score >= 12 && !shootingStarTriggered) {
+      triggerShootingStar();
+    }
+
+    updateCamera();
+    spawnActiveStone();
+  }
+
+  function processDropCollision() {
+    if (!activeStone || activeStone.state !== 'DROPPING') return;
+
+    activeStone.y += 8.5 + Math.min(score * 0.18, 4.5); 
+
+    let topStone = tower[tower.length - 1];
+    let topWorld = getRotatedPos(topStone.localX, topStone.localY, currentTilt);
+    let currentStoneScreenY = activeStone.y + cameraY + waterLevel;
+    
+    if (currentStoneScreenY + activeStone.ry >= topWorld.y - topStone.ry) {
+      let diffX = activeStone.dropX - topWorld.x;
+      
+      if (Math.abs(diffX) > topStone.rx * 0.82) {
+        playSound('splash');
+        perfectCombo = 0;
+        
+        let fs = activeStone.stoneObj;
+        fs.worldX = activeStone.dropX;
+        fs.worldY = activeStone.y + waterLevel;
+        fs.vx = (activeStone.dropX > topWorld.x ? 2 : -2);
+        fs.vy = 2;
+        fs.va = (Math.random() - 0.5) * 0.2;
+        fallingStones.push(fs);
+        activeStone = null;
+
+        triggerGameOver();
+        return;
+      }
+
+      let localYPos = topStone.localY - topStone.ry * 1.6;
+      let newLocalX = topStone.localX + diffX;
+      activeStone.stoneObj.localX = newLocalX;
+      activeStone.stoneObj.localY = localYPos;
+      tower.push(activeStone.stoneObj);
+
+      if (Math.abs(diffX) <= 5) {
+        diffX = 0;
+        targetTilt *= 0.5;
+        activeStone.stoneObj.flash = 0.8;
+        perfectCombo++;
+        playSound('perfect');
+        
+        let curWater = Math.floor(waterLevel + cameraY);
+        ripples.push(new Ripple(topWorld.x, curWater));
+        for(let i=0; i<15; i++) particles.push(new Particle(topWorld.x, topWorld.y));
+      } else {
+        perfectCombo = 0;
+        playSound('drop');
+      }
+
+      let sumX = 0;
+      for (let s of tower) {
+        sumX += s.localX;
+      }
+      let comX = sumX / tower.length;
+
+      let localTorque = diffX * (0.0009 + score * 0.00018);
+      let comTorque = (comX / 70) * (0.07 + score * 0.006);
+      targetTilt = targetTilt * 0.65 + localTorque + comTorque;
+
+      score++;
+      scoreEl.textContent = score;
+      bgPhase = Math.min(1.0, score / 35);
+
+      // スコア12到達時に流れ星をトリガー
+      if (score >= 12 && !shootingStarTriggered) {
+        triggerShootingStar();
+      }
+
+      if (Math.abs(targetTilt) > 0.22) {
+        triggerGameOver();
+      } else {
+        updateCamera();
+        spawnActiveStone();
+      }
+    }
+  }
+
+  function updateCamera() {
+    let topLocalY = tower[tower.length - 1].localY;
+    targetCameraY = Math.max(0, -topLocalY - H * 0.28);
+  }
+
+  function triggerGameOver() {
+    if (gameState === 'COLLAPSING' || gameState === 'SHOWCASE') return;
+    gameState = 'COLLAPSING';
+    perfectCombo = 0;
+    collapseFrame = 0;
+    cinematicFrame = 0;
+    modalShown = false;
+    uiLayer.style.opacity = 0;
+    finalScoreEl.textContent = score;
+    activeStone = null;
+    
+    targetCameraY = 0;
+    tiltVelocity = (currentTilt >= 0 ? 0.012 : -0.012);
+  }
+
+  function getMoonPosition() {
+    let p = currentMoonProgress;
+    let t = p * p * (3 - 2 * p);
+    
+    let uiBottom = uiLayer ? uiLayer.getBoundingClientRect().bottom : 85;
+    let finalY = Math.max(70, Math.floor(uiBottom + 12));
+    let finalX = W * 0.77;
+    let startX = W * 0.65;
+    let startY = waterLevel - 40;
+    
+    let moonX = startX + (finalX - startX) * t;
+    let moonY = startY - (startY - finalY) * t;
+    return { x: moonX, y: moonY, progress: p };
+  }
+
+  // 月相ごとの幾何学パス生成ヘルパー
+  function createMoonPath(ctx, cx, cy, r, type) {
+    ctx.beginPath();
+    if (type === 'FULL') {
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    } else if (type === 'HALF') {
+      ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
+      ctx.closePath();
+    } else if (type === 'CRESCENT') {
+      // 外周円弧（半径 r）＋ 内側楕円弧（長軸 r, 短軸 0.52r）による鋭利で優美な三日月パス
+      ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
+      ctx.ellipse(cx, cy, r * 0.52, r, 0, Math.PI / 2, -Math.PI / 2, true);
+      ctx.closePath();
+    }
+  }
+
+  function drawEnvironment(time, isReflection, curWater) {
+    let phase = bgPhase;
+    let skyTop, skyBottom;
+    
+    if (phase < 0.5) {
+      let t = phase * 2;
+      skyTop = lerpColor('#0a1122', '#020617', t);
+      skyBottom = lerpColor('#1b1e38', '#161936', t);
+    } else {
+      let t = (phase - 0.5) * 2;
+      skyTop = lerpColor('#020617', '#121124', t);
+      skyBottom = lerpColor('#161936', '#3b124d', t);
+    }
+
+    let grad = ctx.createLinearGradient(0, isReflection ? curWater : 0, 0, isReflection ? H : curWater);
+    grad.addColorStop(0, skyTop);
+    grad.addColorStop(1, skyBottom);
+    
+    ctx.fillStyle = grad;
+    if (isReflection) {
+      ctx.fillRect(0, curWater, W, Math.max(0, H - curWater));
+    } else {
+      ctx.fillRect(0, 0, W, curWater);
+    }
+
+    // スコア25到達時の超高層イベント「極光（淡いオーロラ）」
+    if (!isReflection) {
+      let targetAurora = score >= 25 ? Math.min(0.30, (score - 24) * 0.04) : 0;
+      currentAuroraAlpha += (targetAurora - currentAuroraAlpha) * 0.02;
+
+      if (currentAuroraAlpha > 0.005) {
+        ctx.save();
+        for (let l = 0; l < 2; l++) {
+          let ribbonGrad = ctx.createLinearGradient(0, 0, 0, 150);
+          if (l === 0) {
+            ribbonGrad.addColorStop(0, `rgba(52, 211, 153, ${currentAuroraAlpha * 0.52})`); // エメラルドグリーン
+            ribbonGrad.addColorStop(0.5, `rgba(56, 189, 248, ${currentAuroraAlpha * 0.25})`);
+            ribbonGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+          } else {
+            ribbonGrad.addColorStop(0, `rgba(167, 139, 250, ${currentAuroraAlpha * 0.35})`); // 淡い紫
+            ribbonGrad.addColorStop(0.45, `rgba(52, 211, 153, ${currentAuroraAlpha * 0.20})`);
+            ribbonGrad.addColorStop(1, 'rgba(52, 211, 153, 0)');
+          }
+
+          ctx.fillStyle = ribbonGrad;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          for (let x = 0; x <= W; x += 25) {
+            let wave = Math.sin(time * 0.00075 + x * 0.007 + l * 1.8) * 22
+                     + Math.cos(time * 0.0011 + x * 0.014) * 14;
+            ctx.lineTo(x, 70 + wave + l * 28);
+          }
+          ctx.lineTo(W, 0);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    if (!isReflection && stars.length > 0) {
+      stars.forEach(s => {
+        let alpha = 0.25 + (Math.sin(time * s.speed + s.phase) * 0.5 + 0.5) * 0.65;
+        let starY = s.y + cameraY * s.layerFactor;
+        if (starY < curWater) {
+          ctx.fillStyle = `rgba(224, 242, 254, ${alpha})`;
+          ctx.beginPath();
+          ctx.arc(s.x, starY, s.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    }
+
+    // 流れ星の描画（水面より上の天空）
+    if (!isReflection) {
+      updateAndDrawShootingStar(ctx);
+    }
+
+    let moonPos = getMoonPosition();
+    let moonRadius = 24;
+    let moonAngle = (currentMoonType === 'CRESCENT') ? -0.32 : 0;
+
+    if (!isReflection) {
+      ctx.save();
+      ctx.translate(moonPos.x, moonPos.y);
+      if (currentMoonType === 'CRESCENT') {
+        ctx.rotate(moonAngle);
+      }
+
+      let haloOffsetX = (currentMoonType === 'CRESCENT') ? 14 : (currentMoonType === 'HALF' ? 8 : 0);
+      let haloRadius = (currentMoonType === 'FULL') ? 80 : (currentMoonType === 'HALF' ? 48 : 36);
+
+      let haloGrad = ctx.createRadialGradient(
+        haloOffsetX,
+        0,
+        moonRadius * 0.2,
+        haloOffsetX,
+        0,
+        haloRadius
+      );
+
+      if (currentMoonType === 'FULL') {
+        haloGrad.addColorStop(0, 'rgba(224, 242, 254, 0.28)');
+        haloGrad.addColorStop(0.5, 'rgba(254, 249, 195, 0.10)');
+        haloGrad.addColorStop(1, 'rgba(224, 242, 254, 0)');
+      } else if (currentMoonType === 'HALF') {
+        haloGrad.addColorStop(0, 'rgba(224, 242, 254, 0.20)');
+        haloGrad.addColorStop(0.5, 'rgba(254, 249, 195, 0.07)');
+        haloGrad.addColorStop(1, 'rgba(224, 242, 254, 0)');
+      } else {
+        haloGrad.addColorStop(0, 'rgba(224, 242, 254, 0.16)');
+        haloGrad.addColorStop(0.5, 'rgba(186, 230, 253, 0.05)');
+        haloGrad.addColorStop(1, 'rgba(224, 242, 254, 0)');
+      }
+      
+      ctx.fillStyle = haloGrad;
+      ctx.beginPath();
+      ctx.arc(haloOffsetX, 0, haloRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 月本体の数理描画
+      let moonGrad = ctx.createRadialGradient(-3, -3, 2, 0, 0, moonRadius);
+      moonGrad.addColorStop(0, '#ffffff');
+      moonGrad.addColorStop(0.7, '#fffbeb');
+      moonGrad.addColorStop(1, '#fef9c3');
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(254, 249, 195, 0.5)';
+      ctx.shadowBlur = (currentMoonType === 'FULL') ? 14 : (currentMoonType === 'HALF' ? 8 : 6);
+      ctx.fillStyle = moonGrad;
+      createMoonPath(ctx, 0, 0, moonRadius, currentMoonType);
+      ctx.fill();
+      ctx.restore();
+
+      // クレーター模様（満月および半月の光る側）
+      if (currentMoonType === 'FULL') {
+        ctx.fillStyle = 'rgba(217, 219, 227, 0.18)';
+        ctx.beginPath();
+        ctx.arc(-5, -3, 5, 0, Math.PI * 2);
+        ctx.arc(6, 5, 3.5, 0, Math.PI * 2);
+        ctx.arc(-4, 7, 3, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (currentMoonType === 'HALF') {
+        ctx.fillStyle = 'rgba(217, 219, 227, 0.16)';
+        ctx.beginPath();
+        ctx.arc(6, 5, 3.5, 0, Math.PI * 2);
+        ctx.arc(4, -4, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    } else {
+      let moonVisibility = 0;
+      if (moonPos.progress > 0.15) {
+        moonVisibility = Math.min(1.0, (moonPos.progress - 0.15) / 0.15);
+      }
+
+      let refMoonY = curWater + (curWater - moonPos.y);
+
+      // 月相に応じた水面ムーンロードの光学連動
+      if (curWater < H && moonPos.y < curWater && moonVisibility > 0) {
+        let waveSine = Math.sin(time * 0.003);
+        let baseRoadWidth = (currentMoonType === 'FULL') ? 36 : (currentMoonType === 'HALF' ? 22 : 14);
+        let roadWidth = baseRoadWidth + waveSine * (currentMoonType === 'FULL' ? 6 : (currentMoonType === 'HALF' ? 4 : 2.5));
+        let roadHeight = Math.max(10, H - curWater);
+        
+        let baseRoadAlpha = (currentMoonType === 'FULL') ? 0.32 : (currentMoonType === 'HALF' ? 0.24 : 0.16);
+        let roadAlpha = (baseRoadAlpha + Math.sin(time * 0.002) * 0.05) * moonVisibility;
+        
+        let roadGrad = ctx.createLinearGradient(moonPos.x, curWater, moonPos.x, H);
+        roadGrad.addColorStop(0, `rgba(254, 249, 195, ${roadAlpha})`);
+        roadGrad.addColorStop(0.3, `rgba(224, 242, 254, ${roadAlpha * 0.55})`);
+        roadGrad.addColorStop(1, 'rgba(224, 242, 254, 0)');
+
+        ctx.save();
+        ctx.fillStyle = roadGrad;
+        ctx.beginPath();
+        let wobbleX = Math.sin(time * 0.002) * (currentMoonType === 'CRESCENT' ? 2 : 4);
+        ctx.ellipse(moonPos.x + wobbleX, curWater + roadHeight * 0.35, roadWidth * 0.5, roadHeight * 0.45, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 水面反射月
+      if (refMoonY > curWater && refMoonY - moonRadius < H && moonVisibility > 0) {
+        ctx.save();
+        let baseRefAlpha = (currentMoonType === 'FULL') ? 0.38 : (currentMoonType === 'HALF' ? 0.28 : 0.20);
+        ctx.globalAlpha = baseRefAlpha * moonVisibility;
+        
+        let refGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, moonRadius);
+        refGrad.addColorStop(0, '#ffffff');
+        refGrad.addColorStop(1, '#fef9c3');
+
+        let waveOffset = Math.sin(time * 0.0035 + refMoonY * 0.05) * 3;
+        
+        ctx.translate(moonPos.x + waveOffset, refMoonY);
+        ctx.scale(1.05, 0.85);
+        if (currentMoonType === 'CRESCENT') {
+          ctx.rotate(-moonAngle);
+        }
+
+        ctx.fillStyle = refGrad;
+        createMoonPath(ctx, 0, 0, moonRadius, currentMoonType);
+        ctx.fill();
+        
+        ctx.restore();
+      }
+    }
+
+    mountains.forEach(m => {
+      let mColor;
+      if (phase < 0.5) {
+        let t = phase * 2;
+        if (m.layer === 0) {
+          mColor = lerpColor('#162032', '#0e1726', t);
+        } else if (m.layer === 1) {
+          mColor = lerpColor('#0f1726', '#090e18', t);
+        } else {
+          mColor = lerpColor('#070c16', '#04070d', t);
+        }
+      } else {
+        let t = (phase - 0.5) * 2;
+        if (m.layer === 0) {
+          mColor = lerpColor('#0e1726', '#2b1442', t);
+        } else if (m.layer === 1) {
+          mColor = lerpColor('#090e18', '#1a0a2e', t);
+        } else {
+          mColor = lerpColor('#04070d', '#0f051c', t);
+        }
+      }
+      
+      ctx.fillStyle = mColor;
+      ctx.beginPath();
+      
+      let yOffset = isReflection ? 0 : cameraY * 0.12 * (m.layer + 1);
+      let firstPt = m.points[0];
+      ctx.moveTo(firstPt.x, curWater);
+      
+      for(let i = 0; i < m.points.length - 1; i++) {
+        let p1 = m.points[i];
+        let p2 = m.points[i+1];
+        let xc = (p1.x + p2.x) / 2;
+        let yc = (p1.y + p2.y) / 2;
+        let y1 = isReflection ? curWater + (curWater - p1.y) : p1.y + yOffset;
+        let y2 = isReflection ? curWater + (curWater - yc) : yc + yOffset;
+        ctx.quadraticCurveTo(p1.x, y1, xc, y2);
+      }
+      
+      let lastPt = m.points[m.points.length - 1];
+      let lastY = isReflection ? curWater + (curWater - lastPt.y) : lastPt.y + yOffset;
+      ctx.lineTo(lastPt.x, lastY);
+      ctx.lineTo(lastPt.x, curWater);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // スコア18到達時の湖面夜霧（薄靄）
+    if (!isReflection) {
+      let targetMist = score >= 18 ? Math.min(0.24, (score - 17) * 0.04) : 0;
+      currentMistAlpha += (targetMist - currentMistAlpha) * 0.02;
+
+      if (currentMistAlpha > 0.005) {
+        let mistHeight = 100;
+        let mistTop = curWater - mistHeight;
+        let mistGrad = ctx.createLinearGradient(0, mistTop, 0, curWater);
+        mistGrad.addColorStop(0, 'rgba(224, 242, 254, 0)');
+        mistGrad.addColorStop(0.5, `rgba(186, 230, 253, ${currentMistAlpha * 0.6})`);
+        mistGrad.addColorStop(1, `rgba(224, 242, 254, ${currentMistAlpha * 0.95})`);
+
+        ctx.save();
+        ctx.fillStyle = mistGrad;
+        ctx.beginPath();
+        ctx.moveTo(0, curWater);
+        for (let x = 0; x <= W; x += 30) {
+          let wave = Math.sin(time * 0.0012 + x * 0.015) * 10 + Math.cos(time * 0.0008 + x * 0.022) * 6;
+          ctx.lineTo(x, mistTop + wave);
+        }
+        ctx.lineTo(W, curWater);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawBoat(ctx) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(-95, -6);
+    ctx.quadraticCurveTo(-60, 16, 0, 18);
+    ctx.quadraticCurveTo(60, 16, 95, -6);
+    ctx.lineTo(80, -18);
+    ctx.lineTo(-80, -18);
+    ctx.closePath();
+    
+    let boatGrad = ctx.createLinearGradient(0, -18, 0, 18);
+    boatGrad.addColorStop(0, '#3e2723');
+    boatGrad.addColorStop(0.7, '#1b0000');
+    boatGrad.addColorStop(1, '#0f0505');
+    ctx.fillStyle = boatGrad;
+    ctx.fill();
+    
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(-82, -16);
+    ctx.lineTo(82, -16);
+    ctx.strokeStyle = '#5d4037';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawTowerAndActive(isReflection, curWater) {
+    ctx.save();
+    
+    ctx.translate(Math.floor(W / 2), curWater);
+    
+    if (isReflection) {
+      ctx.scale(1, -1);
+      ctx.globalAlpha = 0.6;
+    }
+
+    let wobble = (gameState === 'PLAYING' || gameState === 'START') ? Math.sin(Date.now() * 0.0015) * 0.03 : 0;
+    if (gameState === 'PLAYING' && Math.abs(currentTilt) > 0.14) {
+      wobble += Math.sin(Date.now() * 0.035) * 0.012;
+      wobble += (Math.random() - 0.5) * 0.015;
+    }
+    ctx.rotate(currentTilt + wobble);
+    
+    drawBoat(ctx);
+
+    for(let s of tower) {
+      s.draw(ctx, s.localX, s.localY);
+    }
+
+    ctx.restore();
+
+    if (activeStone) {
+      if (activeStone.state === 'SWINGING' && !isReflection) {
+        let pivotX = W / 2;
+        let uiBottom = uiLayer ? uiLayer.getBoundingClientRect().bottom : 80;
+        let pivotY = Math.floor(uiBottom + 16);
+
+        let topStone = tower[tower.length - 1];
+        let topWorld = getRotatedPos(topStone.localX, topStone.localY, currentTilt);
+        let targetStoneY = Math.max(pivotY + 160, topWorld.y - 240);
+        let rodLength = Math.max(160, targetStoneY - pivotY);
+
+        let stoneX, stoneY;
+
+        if (gameState === 'START') {
+          stoneX = pivotX;
+          stoneY = pivotY + rodLength;
+        } else {
+          let timeElapsed = Date.now() - swingStartTime;
+          let swingSpeed = 0.0022 + score * 0.00007;
+          let swingXAmp = Math.max(rodLength * Math.sin(0.78), W * 0.44);
+          let normalizedSwing = Math.sin(timeElapsed * swingSpeed);
+          stoneX = pivotX + normalizedSwing * swingXAmp;
+          stoneY = pivotY + Math.sqrt(Math.max(100, rodLength * rodLength - Math.pow(stoneX - pivotX, 2) * 0.25));
+        }
+
+        activeStone.currentSwingX = stoneX - pivotX;
+        activeStone.currentSwingY = stoneY - curWater;
+
+        let time = Date.now();
+        let twinkle = 0.45 + Math.sin(time * 0.004) * 0.25;
+        ctx.fillStyle = `rgba(224, 242, 254, ${twinkle})`;
+        ctx.beginPath();
+        ctx.arc(pivotX, pivotY, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(pivotX, pivotY);
+        ctx.lineTo(stoneX, stoneY);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
+        activeStone.stoneObj.draw(ctx, stoneX, stoneY);
+      } else if (activeStone.state === 'DROPPING') {
+        let screenY = activeStone.y + curWater;
+        let renderY = isReflection ? curWater + (curWater - screenY) : screenY;
+        if(isReflection) {
+            ctx.save();
+            ctx.globalAlpha = 0.6;
+            ctx.scale(1, -1);
+            activeStone.stoneObj.draw(ctx, activeStone.dropX, -renderY);
+            ctx.restore();
+        } else {
+            activeStone.stoneObj.draw(ctx, activeStone.dropX, renderY);
+        }
+      }
+    }
+
+    fallingStones.forEach(s => {
+      let renderY = s.worldY + cameraY;
+      if (isReflection) {
+        let refY = curWater + (curWater - renderY);
+        ctx.save();
+        ctx.globalAlpha = 0.55;
+        s.draw(ctx, s.worldX, refY, -s.angle);
+        ctx.restore();
+      } else {
+        s.draw(ctx, s.worldX, renderY, s.angle);
+      }
+    });
+  }
+
+  function gameLoop() {
+    if (!isGameInitialized) {
+      if (window.innerWidth > 0 && window.innerHeight > 0) {
+        resize();
+        initGame();
+      }
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+
+    let time = Date.now();
+    
+    ctx.clearRect(0, 0, W, H);
+
+    cameraY += (targetCameraY - cameraY) * 0.08;
+    currentTilt += (targetTilt - currentTilt) * 0.1;
+
+    targetMoonProgress = Math.min(1.0, score / 20);
+    currentMoonProgress += (targetMoonProgress - currentMoonProgress) * 0.025;
+
+    if (gameState === 'PLAYING') {
+      processDropCollision();
+    } else if (gameState === 'COLLAPSING') {
+      collapseFrame++;
+      
+      tiltVelocity *= 1.04;
+      currentTilt += tiltVelocity;
+
+      if (tower.length > 1 && collapseFrame > 8) {
+        let dropCount = Math.min(2, tower.length - 1);
+        for (let k = 0; k < dropCount; k++) {
+          let s = tower.pop();
+          let worldPos = getRotatedWorldPos(s.localX, s.localY, currentTilt);
+          s.worldX = worldPos.x;
+          s.worldY = worldPos.y;
+          s.vx = (currentTilt > 0 ? 1 : -1) * (2 + Math.random() * 4);
+          s.vy = -1 - Math.random() * 2;
+          s.va = (Math.random() - 0.5) * 0.25;
+          fallingStones.push(s);
+        }
+      }
+
+      if (tower.length <= 1) {
+        currentTilt *= 0.94;
+        if (collapseFrame > 45) {
+          gameState = 'SHOWCASE';
+          cinematicFrame = 0;
+        }
+      }
+    } else if (gameState === 'SHOWCASE') {
+      cinematicFrame++;
+      currentTilt *= 0.95;
+      
+      if (cinematicFrame >= 75 && !modalShown) {
+        modalShown = true;
+        gameOverModal.classList.remove('hidden');
+      }
+    }
+
+    let curWaterLevel = Math.floor(waterLevel + cameraY);
+
+    for (let i = fallingStones.length - 1; i >= 0; i--) {
+      let fs = fallingStones[i];
+      fs.updatePhysics();
+      
+      let renderY = fs.worldY + cameraY;
+      let prevRenderY = (fs.worldY - fs.vy) + cameraY;
+      if (renderY >= curWaterLevel && prevRenderY < curWaterLevel) {
+        playSound('splash');
+        ripples.push(new Ripple(fs.worldX, curWaterLevel));
+        for (let p = 0; p < 8; p++) {
+          particles.push(new Particle(fs.worldX, curWaterLevel));
+        }
+      }
+
+      if (fs.worldY > H + 300) {
+        fallingStones.splice(i, 1);
+      }
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, curWaterLevel);
+    ctx.clip();
+    drawEnvironment(time, false, curWaterLevel);
+    drawTowerAndActive(false, curWaterLevel);
+    ctx.restore();
+
+    if (curWaterLevel < H) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, curWaterLevel, W, Math.ceil(H - curWaterLevel));
+      ctx.clip();
+      drawEnvironment(time, true, curWaterLevel);
+      drawTowerAndActive(true, curWaterLevel);
+      
+      let waterGrad = ctx.createLinearGradient(0, curWaterLevel, 0, H);
+      waterGrad.addColorStop(0, 'rgba(14, 23, 42, 0.45)');
+      waterGrad.addColorStop(1, 'rgba(2, 6, 23, 0.92)');
+      ctx.fillStyle = waterGrad;
+      ctx.fillRect(0, curWaterLevel, W, Math.ceil(H - curWaterLevel));
+      ctx.restore();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, curWaterLevel);
+      ctx.lineTo(W, curWaterLevel);
+      ctx.stroke();
+    }
+
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      ripples[i].update();
+      ripples[i].draw(ctx);
+      if (ripples[i].life <= 0) ripples.splice(i, 1);
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      particles[i].update();
+      particles[i].draw(ctx);
+      if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // 画面タップ操作（通常石落とし）
+  window.addEventListener('pointerdown', (e) => {
+    // 右下音量ボタン、左下デバッグボタン、モーダル内ボタンは通常タップから除外
+    if (e.target.closest('#mute-btn') || e.target.closest('#debug-stack-btn') || e.target.closest('#game-over-modal')) return;
+    
+    if (gameState === 'COLLAPSING' || gameState === 'SHOWCASE') {
+      if (!modalShown) {
+        modalShown = true;
+        cameraY = 0;
+        targetCameraY = 0;
+        currentTilt = 0;
+        tower = [tower[0]];
+        gameOverModal.classList.remove('hidden');
+      }
+      return;
+    }
+    handleTap();
+  });
+
+  // 左下デバッグボタン：安全垂直スタック（イベント伝播遮断で画面タップと完全分離）
+  if (debugStackBtn) {
+    debugStackBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      debugStackOneStone();
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { 
+      e.preventDefault();
+      handleTap();
+    }
+  });
+
+  restartBtn.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    initGame(true);
+  });
+
+  let startupTriggered = false;
+  function startUp() {
+    if (startupTriggered) return;
+    startupTriggered = true;
+    resize();
+    initGame();
+    requestAnimationFrame(gameLoop);
+  }
+
+  window.addEventListener('load', startUp);
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    startUp();
+  } else {
+    setTimeout(startUp, 100);
+  }
+</script>
+</body>
+</html>
